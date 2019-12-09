@@ -9,6 +9,8 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable, axes_size
 
 import floatpy.derivatives.explicit.first as first_der
 
+import floatpy_helpers as fh
+
 #Local Modules
 import floatpy.readers.moving_grid_data_reader as mgdr
 
@@ -59,17 +61,22 @@ if __name__ == '__main__':
 
     print("Variables available: {}".format(reader._var_names))
 
-    middle_selection = 0.2 #select middle 25% of domain in x
-    x1 = int(Nx/2 - middle_selection/2*Nx)
-    x2 = int(Nx/2 + middle_selection/2*Nx)
+    middle_selection = 0.12 #select middle 25% of domain in x
+    middle_offset = 0.016
+    x1 = int(Nx/2 - middle_selection/2*Nx + middle_offset*Nx)
+    x2 = int(Nx/2 + middle_selection/2*Nx + middle_offset*Nx)
     reader.setSubDomain(((x1,0,0),(x2,Ny-1,Nz-1)))
 
     # Get coordinates based on subdomain
     x,y,z = reader.readCoordinates()
+    x_center = np.mean(x[:,0,0])
     nx, ny, nz = reader._subdomain_hi-reader._subdomain_lo+1
 
-    tsteps = (0,10,45,80,115,125,135,145,155,165,180)
-    #tsteps = (0,10)
+    #tsteps = (0,10,45,80,115,125,135,145,155,165,180) #all steps
+    #tsteps = (10,125,180)
+    #tsteps = (125,145,165,180) #for spectra
+    tsteps = (10,45,80,115,125,145,165,180) #use for density reconstruction and anisotropy
+    #tsteps = (10,125) #for covariances
 
     Ma_t_IMZ = np.zeros(len(tsteps))
     At_e_IMZ = np.zeros(len(tsteps))
@@ -79,6 +86,7 @@ if __name__ == '__main__':
     TKE_int  = np.zeros(len(tsteps))
     Diss_int = np.zeros(len(tsteps))
     Enstrophy_int = np.zeros(len(tsteps))
+    b11_IMZ  = np.zeros(len(tsteps))
 
     for tind, step in enumerate(tsteps):
         reader.setStep(step)
@@ -86,6 +94,8 @@ if __name__ == '__main__':
         YSF6       = np.squeeze(np.array(reader.readData('mass fraction 0')))
         density    = np.squeeze(np.array(reader.readData('density')))
         pressure   = np.squeeze(np.array(reader.readData('pressure')))
+        
+        rho_bar = np.mean(np.mean(density,axis=2),axis=1)
 
         Cp = YSF6*Cp_SF6 + (1-YSF6)*Cp_air
         Cv = YSF6*Cv_SF6 + (1-YSF6)*Cv_air
@@ -100,15 +110,13 @@ if __name__ == '__main__':
         Omega_D = A*Tij**B + C*np.exp(D*Tij) + E*np.exp(F*Tij) + G*np.exp(H*Tij)
         D_binary = (0.0266/Omega_D)*(T**1.5)/(sigma_ij**2*pressure*M_ij**0.5)
         
-        del pressure, T, Tij, Omega_D
+        del Tij, Omega_D
 
         #Find inner mixing zone (IMZ)
         IMZ_thresh = 0.9
         XSF6 = M/M_SF6*YSF6
         XSF6_bar = np.mean(np.mean(XSF6,axis=2),axis=1)
         IMZ_crit = 4*XSF6_bar*(1-XSF6_bar) - IMZ_thresh
-
-        del M
 
         for ind in range(len(IMZ_crit)):
             if IMZ_crit[ind] >= 0:
@@ -122,7 +130,8 @@ if __name__ == '__main__':
                 break
 
         IMZ_mid = np.argmax(IMZ_crit)
-
+        print(IMZ_lo,IMZ_mid,IMZ_hi)
+        
         # Compute Mixing Width 
         integrand = 4*XSF6_bar*(1-XSF6_bar)
         W[tind] = integrate.simps(integrand,x[:,0,0])
@@ -134,8 +143,41 @@ if __name__ == '__main__':
 
         denom = W[tind]/4.0
         Theta[tind] = numer/denom
+        
+        xstar= (x[:,0,0]-x[IMZ_mid,0,0])/W[tind]
+
+        ##Mole Fraction Variance
+        #XSF6_prime = XSF6-XSF6_bar.reshape((nx,1,1))
+        #XSF6_variance = np.mean(np.mean(XSF6_prime**2,axis=2),axis=1)
+
+        #if step < 125:
+        #    #before reshock
+        #    plt.figure(1)
+        #else:
+        #    #after reshock
+        #    plt.figure(2)
+
+        #plt.plot(x[:,0,0],XSF6_variance)
+
+        #TODO: Prediction of mole fraction variance with density
+
+        ##XSF6 Spectra
+        #k_rad, XSF6_spec_rad = fh.radial_spectra(x[:,0,0],y[0,:,0],z[0,0,:],XSF6[IMZ_lo:IMZ_hi+1,:,:])
+
+        #plt.figure(1)
+        #plt.title("XSF6 spectra".format(step)) 
+        #plt.loglog(k_rad, XSF6_spec_rad)
+        #if step==125:
+        #    plt.loglog(k_rad, 1e2*k_rad**(-1.5),'k--')
 
         del XSF6
+
+        ##Density Spectra
+        #k_rad, rho_spec_rad = fh.radial_spectra(x[:,0,0],y[0,:,0],z[0,0,:],density[IMZ_lo:IMZ_hi+1,:,:])
+
+        #plt.figure(2)
+        #plt.title("Density spectra")
+        #plt.loglog(k_rad, rho_spec_rad)
 
         #Compute Turbulent Mach Number
         velocity   = np.squeeze(np.array(reader.readData('velocity')))
@@ -143,17 +185,41 @@ if __name__ == '__main__':
         v_tilde = np.mean(np.mean(velocity[1,:,:,:]*density,axis=2),axis=1)/np.mean(np.mean(density,axis=2),axis=1)
         w_tilde = np.mean(np.mean(velocity[2,:,:,:]*density,axis=2),axis=1)/np.mean(np.mean(density,axis=2),axis=1)
 
-        u_tilde = u_tilde.reshape((nx,1,1))
-        v_tilde = v_tilde.reshape((nx,1,1))
-        w_tilde = w_tilde.reshape((nx,1,1))
-
-        u_doubleprime = velocity[0,:,:,:]-u_tilde
-        v_doubleprime = velocity[1,:,:,:]-v_tilde
-        w_doubleprime = velocity[2,:,:,:]-w_tilde
+        u_doubleprime = velocity[0,:,:,:]-u_tilde.reshape((nx,1,1))
+        v_doubleprime = velocity[1,:,:,:]-v_tilde.reshape((nx,1,1))
+        w_doubleprime = velocity[2,:,:,:]-w_tilde.reshape((nx,1,1))
 
         del u_tilde, v_tilde, w_tilde
 
         TKE = 0.5*density*(u_doubleprime**2+v_doubleprime**2+w_doubleprime**2)
+
+        #TODO: Anisotropy (23 and 24)
+        R11 = np.mean(np.mean(density*u_doubleprime**2,axis=2),axis=1)/np.mean(np.mean(density,axis=2),axis=1)
+        Rkk = np.mean(np.mean(2*TKE,axis=2),axis=1)/np.mean(np.mean(density,axis=2),axis=1)
+        b11 = R11/Rkk - 1.0/3.0
+        b11_IMZ[tind] = np.mean(b11[IMZ_lo:IMZ_hi+1])
+
+        if step < 125:
+            #before reshock
+            plt.figure(1)
+        else:
+            #after reshock
+            plt.figure(2)
+
+        plt.plot(xstar,b11)
+        plt.xlabel('x*')
+        plt.xlim([-1.5,2.0])
+        plt.ylim([-2.0/3.0,2.0/3.0])
+
+        ##Energy Spectra
+        #energy_for_spectra = density*u_doubleprime/(np.reshape(rho_bar,(nx,1,1)))**0.5
+        #k_rad, rhoU_spec_rad = fh.radial_spectra(x[:,0,0],y[0,:,0],z[0,0,:],energy_for_spectra[IMZ_lo:IMZ_hi+1,:,:])
+
+        #plt.figure(3)
+        #plt.title("KE Spectra") 
+        #plt.loglog(k_rad, rhoU_spec_rad)
+        #if step==125:
+        #    plt.loglog(k_rad, 1e2*k_rad**(-1.5),'k--')
 
         del u_doubleprime,v_doubleprime,w_doubleprime
     
@@ -163,15 +229,33 @@ if __name__ == '__main__':
         Ma_t_IMZ[tind] = np.mean(Ma_t[IMZ_lo:IMZ_hi+1])
 
         #Compute Effective Atwood Number
-        rho_bar = np.mean(np.mean(density,axis=2),axis=1)
-        rho_bar = rho_bar.reshape((nx,1,1))
-        rho_prime = density-rho_bar
+        rho_prime = density-rho_bar.reshape((nx,1,1))
 
         At_e = ((np.mean(np.mean(rho_prime**2,axis=2),axis=1))**0.5)/rho_bar
         At_e_IMZ[tind] = np.mean(At_e[IMZ_lo:IMZ_hi+1])
-        At_e_centerplane[tind] = np.mean(At_e[IMZ_mid,:,:])
+        At_e_centerplane[tind] = At_e[IMZ_mid]
 
-        del rho_prime
+        # Compute Covariances of Density
+        M_bar = np.mean(np.mean(M,axis=2),axis=1)
+        M_prime = M-M_bar.reshape((nx,1,1))
+        cov_rho_M = np.mean(np.mean(rho_prime*M_prime,axis=2),axis=1)/(rho_bar*M_bar)
+
+        p_bar = np.mean(np.mean(pressure,axis=2),axis=1)
+        p_prime = pressure-p_bar.reshape((nx,1,1))
+        cov_rho_p = np.mean(np.mean(rho_prime*p_prime,axis=2),axis=1)/(rho_bar*p_bar)
+
+        Tinv_bar = np.mean(np.mean(1.0/T,axis=2),axis=1)
+        Tinv_prime = 1.0/T-Tinv_bar.reshape((nx,1,1))
+        cov_rho_Tinv = np.mean(np.mean(rho_prime*Tinv_prime,axis=2),axis=1)/(rho_bar*Tinv_bar)
+
+        del rho_prime, M, M_prime, T, pressure, Tinv_prime, p_prime
+
+        #plt.figure()
+        #plt.plot(xstar,cov_rho_p)
+        #plt.plot(xstar,cov_rho_M)
+        #plt.plot(xstar,cov_rho_Tinv)
+        #plt.xlabel('x*')
+        #plt.xlim([-1.5,2.0])
 
         # Compute Integrated TKE
         TKE_int[tind] = integrate.simps(integrate.simps(integrate.simps(
@@ -213,7 +297,23 @@ if __name__ == '__main__':
         Enstrophy_int[tind] = integrate.simps(integrate.simps(integrate.simps(
             Enstrophy,z[0,0,:],axis=2),y[0,:,0],axis=1),x[:,0,0],axis=0)
 
-        del density, omega1, omega2, omega3, Enstrophy
+        del omega1, omega2, omega3, Enstrophy
+
+        ##Density Reconstruction
+        #rho_SF6 = np.mean(density[0,:,:])
+        #rho_air = np.mean(density[-1,:,:])
+
+        #if step < 125:
+        #    #before reshock
+        #    plt.figure(1)
+        #else:
+        #    #after reshock
+        #    plt.figure(2)
+
+        #rho_recon_bar = (rho_SF6-rho_air)*XSF6_bar+rho_air
+        #plt.plot(x[:,0,0],rho_recon_bar/rho_bar)
+
+        del density
 
         ##Plots
         #plt.figure()
@@ -240,43 +340,46 @@ if __name__ == '__main__':
     tau_c = tau_3D
     tstar = tvec/tau_c
 
-    #Plots
-    plt.figure()
-    plt.plot(tvec,W)
-    plt.title('Mixing Width')
-    plt.xlabel('time [s]')
+    ##Plots
+    #plt.figure()
+    #plt.plot(tvec,W)
+    #plt.title('Mixing Width')
+    #plt.xlabel('time [s]')
+
+    #plt.figure()
+    #plt.plot(tvec,Theta)
+    #plt.title('Mixedness')
+    #plt.xlabel('time [s]')
+
+    #plt.figure()
+    #plt.semilogy(tvec,TKE_int)
+    #plt.title('Integrated TKE')
+    #plt.xlabel('time [s]')
+
+    #plt.figure()
+    #plt.semilogy(tvec,Diss_int)
+    #plt.title('Integrated Dissipation Rate')
+    #plt.xlabel('time [s]')
+
+    #plt.figure()
+    #plt.semilogy(tvec,Enstrophy_int)
+    #plt.title('Integrated Enstrophy')
+    #plt.xlabel('time [s]')
+
+    #plt.figure()
+    #plt.plot(tstar,Ma_t_IMZ)
+    #plt.title('Turbulent Mach #')
+    #plt.xlabel('t* [-]')
+
+    #plt.figure()
+    #plt.plot(tstar,At_e_IMZ)
+    #plt.title('Effective Atwood #')
+    #plt.xlabel('t* [-]')
 
     plt.figure()
-    plt.plot(tvec,Theta)
-    plt.title('Mixedness')
-    plt.xlabel('time [s]')
-
-    plt.figure()
-    plt.semilogy(tvec,TKE_int)
-    plt.title('Integrated TKE')
-    plt.xlabel('time [s]')
-
-    plt.figure()
-    plt.semilogy(tvec,Diss_int)
-    plt.title('Integrated Dissipation Rate')
-    plt.xlabel('time [s]')
-
-    plt.figure()
-    plt.semilogy(tvec,Enstrophy_int)
-    plt.title('Integrated Enstrophy')
-    plt.xlabel('time [s]')
-
-    plt.figure()
-    plt.plot(tstar,Ma_t_IMZ)
-    plt.title('Turbulent Mach #')
+    plt.plot(tstar,b11_IMZ)
+    plt.title('b11')
     plt.xlabel('t* [-]')
-
-    plt.figure()
-    plt.plot(tstar,At_e_IMZ)
-    plt.plot(tstar,At_e_centerplane)
-    plt.title('Effective Atwood #')
-    plt.xlabel('t* [-]')
-
 
     plt.show()
 
