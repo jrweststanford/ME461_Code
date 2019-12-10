@@ -215,17 +215,17 @@ def plot_set1(tsteps, tvec, path):
 
     plt.figure(3)
     plt.semilogy(tvec*1000,TKE_int,'-o')
-    plt.ylabel('Int. TKE [kg m s-2]')
+    plt.ylabel('Int. TKE [kg m2 s-2]')
     plt.xlabel('time [ms]')
 
     plt.figure(4)
     plt.semilogy(tvec*1000,Diss_int,'-o')
-    plt.ylabel('Int. Dissipation Rate [m2 s-1]')
+    plt.ylabel('Int. Dissipation Rate [m3 s-1]')
     plt.xlabel('time [ms]')
 
     plt.figure(5)
     plt.semilogy(tvec*1000,Enstrophy_int,'-o')
-    plt.ylabel(r'Int. Enstrophy [kg m-1 s-2]')
+    plt.ylabel(r'Int. Enstrophy [kg s-2]')
     plt.xlabel('time [ms]')
 
     plt.figure(6)

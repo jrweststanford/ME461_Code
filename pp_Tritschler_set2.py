@@ -23,22 +23,17 @@ matplotlib.rcParams.update(params)
 
 ########################################################################
 ###################### Functions ##############################
-def plot_set1(tsteps, tvec, path):
+def plot_set2(tsteps, tvec, path):
     reader = mir.MirandaReader(path, periodic_dimensions=(False,True,True),verbose=True)
 
     print("Domain Size: {} ".format(reader._domain_size))
     print("Variables available: {}".format(reader.varNames))
     Nx, Ny, Nz = reader._domain_size
 
-    Ma_t_IMZ = np.zeros(len(tsteps))
-    At_e_IMZ = np.zeros(len(tsteps))
-    At_e_centerplane = np.zeros(len(tsteps))
     W        = np.zeros(len(tsteps))
-    Theta    = np.zeros(len(tsteps))
-    TKE_int  = np.zeros(len(tsteps))
-    Diss_int = np.zeros(len(tsteps))
-    Enstrophy_int = np.zeros(len(tsteps))
-    b11_IMZ  = np.zeros(len(tsteps))
+    
+    t_legend1 = []
+    t_legend2 = []
 
     for tind, step in enumerate(tsteps):
 
@@ -61,8 +56,6 @@ def plot_set1(tsteps, tvec, path):
         XHeavy_bar = np.mean(np.mean(XHeavy,axis=2),axis=1)
         IMZ_crit = 4*XHeavy_bar*(1-XHeavy_bar) - IMZ_thresh
 
-	del M
-
         for ind in range(len(IMZ_crit)):
             if IMZ_crit[ind] >= 0:
                 IMZ_lo = ind
@@ -76,17 +69,16 @@ def plot_set1(tsteps, tvec, path):
 
         IMZ_mid = np.argmax(IMZ_crit)
 
-        middle_selection = 0.35 #select middle 20% of domain in x
+        middle_selection = 0.40 #select middle 20% of domain in x
         x1 = IMZ_mid-int(middle_selection/2*Nx)
         x2 = min(IMZ_mid+int(middle_selection/2*Nx),Nx-1)
         reader.setSubDomain(((x1,0,0),(x2,Ny-1,Nz-1)))
 
         # Get coordinates based on subdomain
         x,y,z = reader.readCoordinates()
-        #convert from cm-> m
-        x = 1e-2*x
-        y = 1e-2*y
-        z = 1e-2*z
+        x = x/100.0 #convert from cm-> m
+        y = y/100.0 
+        z = z/100.0
         nx = reader.chunk[0][1] - reader.chunk[0][0]
         ny = reader.chunk[1][1] - reader.chunk[1][0]
         nz = reader.chunk[2][1] - reader.chunk[2][0]
@@ -102,12 +94,10 @@ def plot_set1(tsteps, tvec, path):
         YAc  = np.squeeze(np.array(reader.readData('Ideal1_04')))
         YHeavy = YSF6+YAc
         
-        D_SF6 = 1e-4*np.squeeze(np.array(reader.readData('D_Ideal1_03'))) #convert from cm^2/s to m^2/s
-
         print("reading in density at step {}.".format(step))
-        density    = 1e3*np.squeeze(np.array(reader.readData('density'))) #convert from g/cm^3 to kg/m^3
+        density    = 1e3*np.squeeze(np.array(reader.readData('density')))
         print("reading in pressure at step {}.".format(step))
-        pressure   = 1e-1*np.squeeze(np.array(reader.readData('pressure'))) #convert from g/cms^2 to kg/ms^2
+        pressure   = 1e-1*np.squeeze(np.array(reader.readData('pressure')))
         
         #Calculating Stats
 	print("Computing Diffusion Properties")
@@ -121,30 +111,13 @@ def plot_set1(tsteps, tvec, path):
         T = M*pressure/(density*Ru)
         c = (gamma*pressure/density)**0.5
        
-        del T, YAc, gamma
-
-        # Compute Integrated Scalar Dissipation Rate
-	print("Computing Dissipation")
-        dx = x[1,0,0]-x[0,0,0]
-        dy = y[0,1,0]-y[0,0,0]
-        dz = z[0,0,1]-z[0,0,0]
-        dYdx = first_der.differentiateSecondOrderFiniteDifference(YSF6, dx, 0, None, True, 3, 'C')
-        dYdy = first_der.differentiateSecondOrderFiniteDifference(YSF6, dy, 1, None, True, 3, 'C')
-        dYdz = first_der.differentiateSecondOrderFiniteDifference(YSF6, dz, 2, None, True, 3, 'C')
-
-        Diss = D_SF6*(dYdx**2+dYdy**2+dYdz**2)
-        Diss_int[tind] = integrate.simps(integrate.simps(integrate.simps(
-            Diss,z[0,0,:],axis=2),y[0,:,0],axis=1),x[:,0,0],axis=0)
-
-        del dYdx, dYdy, dYdz, Diss, D_SF6
+        del YAc, gamma
 
         #Find inner mixing zone (IMZ)
         IMZ_thresh = 0.9
         XHeavy = M/M_Heavy*YHeavy
         XHeavy_bar = np.mean(np.mean(XHeavy,axis=2),axis=1)
         IMZ_crit = 4*XHeavy_bar*(1-XHeavy_bar) - IMZ_thresh
-
-	del M
 
         for ind in range(len(IMZ_crit)):
             if IMZ_crit[ind] >= 0:
@@ -164,15 +137,26 @@ def plot_set1(tsteps, tvec, path):
         integrand = 4*XHeavy_bar*(1-XHeavy_bar)
         W[tind] = integrate.simps(integrand,x[:,0,0])
         
-        # Compute Mixedness
-        integrand = XHeavy*(1-XHeavy)
-        integrand = np.mean(np.mean(integrand,axis=2),axis=1)
-        numer = integrate.simps(integrand,x[:,0,0])
-
-        denom = W[tind]/4.0
-        Theta[tind] = numer/denom
-        
         xstar= (x[:,0,0]-x[IMZ_mid,0,0])/W[tind]
+
+        #Mole Fraction Variance
+        XHeavy_prime = XHeavy-XHeavy_bar.reshape((nx,1,1))
+        XHeavy_variance = np.mean(np.mean(XHeavy_prime**2,axis=2),axis=1)
+
+        if step < 22:
+            #before reshock
+            plt.figure(1)
+            t_legend1.append("t = {} ms".format(step*1e-1))
+        else:
+            #after reshock
+            plt.figure(2)
+            t_legend2.append("t = {} ms".format(step*1e-1))
+
+        plt.plot(xstar,XHeavy_variance**0.5)
+        plt.xlim([-2,2])
+        plt.xlabel('x*')
+        plt.ylabel("X'rms (SF6+Ac)")
+        plt.ylim([0,0.4])
 
         del XHeavy
 
@@ -180,9 +164,9 @@ def plot_set1(tsteps, tvec, path):
         print("reading in velocity at step {}.".format(step))
 	print("Computing Turbulent Mach Number")
         velocity = np.zeros((3,nx,ny,nz))
-        velocity[0,:,:,:]   = 1e-2*np.squeeze(np.array(reader.readData('velocity-0'))) # convert from cm/s to m/s 
-        velocity[1,:,:,:]   = 1e-2*np.squeeze(np.array(reader.readData('velocity-1'))) # convert from cm/s to m/s
-        velocity[2,:,:,:]   = 1e-2*np.squeeze(np.array(reader.readData('velocity-2'))) # convert from cm/s to m/s
+        velocity[0,:,:,:]   = 1e-2*np.squeeze(np.array(reader.readData('velocity-0')))
+        velocity[1,:,:,:]   = 1e-2*np.squeeze(np.array(reader.readData('velocity-1')))
+        velocity[2,:,:,:]   = 1e-2*np.squeeze(np.array(reader.readData('velocity-2')))
         u_tilde = np.mean(np.mean(velocity[0,:,:,:]*density,axis=2),axis=1)/np.mean(np.mean(density,axis=2),axis=1)
         v_tilde = np.mean(np.mean(velocity[1,:,:,:]*density,axis=2),axis=1)/np.mean(np.mean(density,axis=2),axis=1)
         w_tilde = np.mean(np.mean(velocity[2,:,:,:]*density,axis=2),axis=1)/np.mean(np.mean(density,axis=2),axis=1)
@@ -195,20 +179,26 @@ def plot_set1(tsteps, tvec, path):
 
         TKE = 0.5*density*(u_doubleprime**2+v_doubleprime**2+w_doubleprime**2)
 
-        # Compute Integrated TKE
-        TKE_int[tind] = integrate.simps(integrate.simps(integrate.simps(
-            TKE,z[0,0,:],axis=2),y[0,:,0],axis=1),x[:,0,0],axis=0)
-
         #Anisotropy (23 and 24)
         R11 = np.mean(np.mean(density*u_doubleprime**2,axis=2),axis=1)/np.mean(np.mean(density,axis=2),axis=1)
         Rkk = np.mean(np.mean(2*TKE,axis=2),axis=1)/np.mean(np.mean(density,axis=2),axis=1)
         b11 = R11/Rkk - 1.0/3.0
-        b11_IMZ[tind] = np.mean(b11[IMZ_lo:IMZ_hi+1])
+
+        if step < 22:
+            #before reshock
+            plt.figure(3)
+        else:
+            #after reshock
+            plt.figure(4)
+
+        plt.plot(xstar,b11)
+        plt.xlabel('x*')
+        plt.ylabel('b11')
+        plt.xlim([-1.5,1.5])
+        plt.ylim([-2.0/3.0,2.0/3.0])
 
         Ma_t = (((np.mean(np.mean(2*TKE/density,axis=2),axis=1))**0.5)/
              np.mean(np.mean(c,axis=2),axis=1))
-
-        Ma_t_IMZ[tind] = np.mean(Ma_t[IMZ_lo:IMZ_hi+1])
 
         del u_doubleprime,v_doubleprime,w_doubleprime, TKE
     
@@ -216,76 +206,63 @@ def plot_set1(tsteps, tvec, path):
         rho_prime = density-rho_bar.reshape((nx,1,1))
 
         At_e = ((np.mean(np.mean(rho_prime**2,axis=2),axis=1))**0.5)/rho_bar
-        At_e_IMZ[tind] = np.mean(At_e[IMZ_lo:IMZ_hi+1])
-        At_e_centerplane[tind] = At_e[IMZ_mid]
         
-        del rho_prime
+        # Compute Covariances of Density
+        M_bar = np.mean(np.mean(M,axis=2),axis=1)
+        M_prime = M-M_bar.reshape((nx,1,1))
+        cov_rho_M = np.mean(np.mean(rho_prime*M_prime,axis=2),axis=1)/(rho_bar*M_bar)
 
-        # Compute Integrated Enstrophy
-	print("Computing Enstrophy")
-	Enstrophy = 0
-        dwdy = first_der.differentiateSecondOrderFiniteDifference(velocity[2,:,:,:], dy, 1, None, True, 3, 'C')
-        dvdx = first_der.differentiateSecondOrderFiniteDifference(velocity[1,:,:,:], dx, 0, None, True, 3, 'C')
-        Enstrophy += density*(dwdy-dvdx)**2
-        del dwdy, dvdx
+        p_bar = np.mean(np.mean(pressure,axis=2),axis=1)
+        p_prime = pressure-p_bar.reshape((nx,1,1))
+        cov_rho_p = np.mean(np.mean(rho_prime*p_prime,axis=2),axis=1)/(rho_bar*p_bar)
 
-        dudz = first_der.differentiateSecondOrderFiniteDifference(velocity[0,:,:,:], dz, 2, None, True, 3, 'C')
-        dwdx = first_der.differentiateSecondOrderFiniteDifference(velocity[2,:,:,:], dx, 0, None, True, 3, 'C')
-        Enstrophy += density*(dudz-dwdx)**2
-        del dudz, dwdx
+        Tinv_bar = np.mean(np.mean(1.0/T,axis=2),axis=1)
+        Tinv_prime = 1.0/T-Tinv_bar.reshape((nx,1,1))
+        cov_rho_Tinv = np.mean(np.mean(rho_prime*Tinv_prime,axis=2),axis=1)/(rho_bar*Tinv_bar)
 
-        dvdx = first_der.differentiateSecondOrderFiniteDifference(velocity[1,:,:,:], dx, 0, None, True, 3, 'C')
-        dudy = first_der.differentiateSecondOrderFiniteDifference(velocity[0,:,:,:], dy, 1, None, True, 3, 'C')
-        Enstrophy += density*(dvdx-dudy)**2
+        del rho_prime, M, M_prime, T, Tinv_prime, p_prime
+
+        if (step == 15) or (step == 22):
+            plt.figure(step)
+            plt.plot(xstar,cov_rho_p)
+            plt.plot(xstar,cov_rho_M)
+            plt.plot(xstar,cov_rho_Tinv)
+            plt.xlabel('x*')
+            plt.xlim([-2.0,2.0])
+            plt.legend(['rho-p','rho-M','rho-1/T'])
+            plt.ylabel('Density Covariance')
+            plt.title("t = {} ms".format(step*1e-1))
         
-	del dvdx, dudy, velocity
+        #Density Reconstruction
+        rho_Heavy = np.mean(density[-1,:,:])
+        rho_air = np.mean(density[0,:,:])
+        rho_recon_bar = (rho_Heavy-rho_air)*XHeavy_bar+rho_air
 
-        Enstrophy_int[tind] = integrate.simps(integrate.simps(integrate.simps(
-            Enstrophy,z[0,0,:],axis=2),y[0,:,0],axis=1),x[:,0,0],axis=0)
+        print(rho_air,rho_Heavy)
+        
+        if (step == 15) or (step==50):
+            plt.figure(5)
+            plt.plot(xstar,rho_recon_bar/rho_bar)
+            plt.xlabel('x*')
+            plt.ylabel('rho / incompressible rho')
+            plt.legend(['t = 1.5 ms','t = 5 ms'])
 
-        del Enstrophy, density, YHeavy
+            #before reshock
 
-    print("Plotting")
-    #Plots
-    plt.figure(1)
-    plt.plot(tvec*1000,W*1000,'-o')
-    plt.ylabel('W [mm]')
-    plt.xlabel('time [ms]')
+        del velocity, pressure
 
-    plt.figure(2)
-    plt.plot(tvec*1000,Theta,'-o')
-    plt.ylabel('Mixedness [-]')
-    plt.xlabel('time [ms]')
+    #Format plots
+    print("Formatting Plots")
+    for ind in range(1,5):
+        plt.figure(ind)
+        if ind%2 == 1:
+            plt.legend(t_legend1)
+        else:
+            plt.legend(t_legend2)
 
-    plt.figure(3)
-    plt.semilogy(tvec*1000,TKE_int,'-o')
-    plt.ylabel('Int. TKE [kg m2 s-2]')
-    plt.xlabel('time [ms]')
-
-    plt.figure(4)
-    plt.semilogy(tvec*1000,Diss_int,'-o')
-    plt.ylabel('Int. Dissipation Rate [m3 s-1]')
-    plt.xlabel('time [ms]')
-
-    plt.figure(5)
-    plt.semilogy(tvec*1000,Enstrophy_int,'-o')
-    plt.ylabel(r'Int. Enstrophy [kg s-2]')
-    plt.xlabel('time [ms]')
-
-    plt.figure(6)
-    plt.plot(tvec*1000,Ma_t_IMZ,'-o')
-    plt.ylabel('Turbulent Ma')
-    plt.xlabel('time [ms]')
-
-    plt.figure(7)
-    plt.plot(tvec*1000,At_e_IMZ,'-o')
-    plt.ylabel('Effective At')
-    plt.xlabel('time [ms]')
-
-    plt.figure(8)
-    plt.plot(tvec*1000,b11_IMZ,'-o')
-    plt.ylabel('b11')
-    plt.xlabel('time [ms]')
+    for ind in plt.get_fignums():
+        plt.figure(ind)
+        plt.tight_layout()
 
     return None
 
@@ -302,22 +279,10 @@ if __name__ == '__main__':
     
     #Choose the time steps to use
     tsteps = (15,20,22,27,50)
-    path_to_64  = "/home/jrwest/Research/FloATPy_moving_grid/data/Tritschler/RM_CTR_3D_64/plot.mir"
-    path_to_128 = "/home/jrwest/Research/FloATPy_moving_grid/data/Tritschler/RM_CTR_3D_64/plot.mir"
-    path_to_256 = "/home/jrwest/Research/FloATPy_moving_grid/data/Tritschler/RM_CTR_3D_64/plot.mir"
-
-    paths_vec = (path_to_64,path_to_128,path_to_256)
     tvec   = 1e-4*np.array(tsteps)
+    path = "/home/jrwest/Research/FloATPy_moving_grid/data/Tritschler/RM_CTR_3D_64/plot.mir"
 
-    for i,path in enumerate(paths_vec):
-        plot_set1(tsteps,tvec,path)
-
-    #Format plots
-    print("Formatting Plots")
-    for ind in plt.get_fignums():
-        plt.figure(ind)
-        plt.legend(['Ny = 64','Ny = 128','Ny = 256'])
-        plt.tight_layout()
+    plot_set2(tsteps,tvec,path)
 
 
     #### END PROBLEM SPECIFIC STUFF ####
