@@ -201,6 +201,7 @@ def plot_set1(tsteps, tvec, path):
             plt.figure(6)
 
         plt.plot(xstar,rho_recon_bar/rho_bar)
+        plt.xlim([-2.0,2.0])
         plt.xlabel('x*')
         plt.ylabel('rho / incompressible rho')
         
