@@ -98,7 +98,7 @@ def plot_set1(tsteps, tvec, path):
 
         plt.figure(2)
         plt.loglog(k_rad, rho_spec_rad)
-        plt.xlabel('Radial Wavenumber [m]')
+        plt.xlabel('Radial Wavenumber [m-1]')
         plt.ylabel("Density spectra")
 
 
@@ -111,7 +111,7 @@ def plot_set1(tsteps, tvec, path):
 
         plt.figure(3)
         plt.loglog(k_rad, rhoU_spec_rad)
-        plt.xlabel('Radial Wavenumber [m]')
+        plt.xlabel('Radial Wavenumber [m-1]')
         plt.ylabel("Energy Spectra") 
 
 
