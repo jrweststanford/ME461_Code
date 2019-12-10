@@ -257,9 +257,9 @@ if __name__ == '__main__':
     from Wong_setup import *
     
     #Choose the time steps to use
-    tsteps_B = (0,10)#,45,80,115,125,135,145,155,165,180) #all steps
-    tsteps_C = (0,10)#,45,80,115,125)
-    tsteps_D = (0,20)#,45,80)
+    tsteps_B = (0,10,45, 80,115,125,135,145,155,165,180) #all steps
+    tsteps_C = tsteps_B
+    tsteps_D = (0,20,90,160,230,250)
     
     path_to_B = "/work/05428/tg847275/Wong/uniform_data/3D_Poggi_RMI_RD/case_1_1/grid_B"
     path_to_C = "/work/05428/tg847275/Wong/uniform_data/3D_Poggi_RMI_RD/case_1_1/grid_C"
