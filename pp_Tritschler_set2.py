@@ -156,7 +156,7 @@ def plot_set2(tsteps, tvec, path):
         plt.xlim([-2,2])
         plt.xlabel('x*')
         plt.ylabel("X'rms (SF6+Ac)")
-        plt.ylim([0,0.4])
+        plt.ylim([0,0.45])
 
         del XHeavy
 
@@ -239,14 +239,13 @@ def plot_set2(tsteps, tvec, path):
         rho_air = np.mean(density[0,:,:])
         rho_recon_bar = (rho_Heavy-rho_air)*XHeavy_bar+rho_air
 
-        print(rho_air,rho_Heavy)
-        
         if (step == 15) or (step==50):
             plt.figure(5)
             plt.plot(xstar,rho_recon_bar/rho_bar)
             plt.xlabel('x*')
             plt.ylabel('rho / incompressible rho')
             plt.legend(['t = 1.5 ms','t = 5 ms'])
+	    plt.xlim([-2,2])
 
             #before reshock
 
@@ -281,7 +280,7 @@ if __name__ == '__main__':
     #Choose the time steps to use
     tsteps = (15,20,22,27,50)
     tvec   = 1e-4*np.array(tsteps)
-    path = "/home/jrwest/Research/FloATPy_moving_grid/data/Tritschler/RM_CTR_3D_64/plot.mir"
+    path = "/scratch/05428/tg847275/Tritschler/RM_CTR_3D_256/plot.mir"
 
     plot_set2(tsteps,tvec,path)
 
