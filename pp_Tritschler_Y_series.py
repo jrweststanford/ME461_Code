@@ -127,7 +127,7 @@ if __name__ == '__main__':
     tsteps = (15,20,22,27,50)
     tvec   = 1e-4*np.array(tsteps)
     path = "/scratch/05428/tg847275/Tritschler/RM_CTR_3D_256/plot.mir"
-    path = "/home/jrwest/Research/FloATPy_moving_grid/data/Tritschler/RM_CTR_3D_64/plot.mir"
+    #path = "/home/jrwest/Research/FloATPy_moving_grid/data/Tritschler/RM_CTR_3D_64/plot.mir"
 
     plot_set2(tsteps,tvec,path)
 

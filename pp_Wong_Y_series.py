@@ -83,8 +83,8 @@ if __name__ == '__main__':
     #Choose the time steps to use
     tsteps = (80,115,125,155,180)
     
-    #path = "/work/05428/tg847275/Wong/uniform_data/3D_Poggi_RMI_RD/case_1_1/grid_B"
-    path = "/home/jrwest/Research/FloATPy_moving_grid/data/Wong/grid_B"
+    path = "/work/05428/tg847275/Wong/uniform_data/3D_Poggi_RMI_RD/case_1_1/grid_C"
+    #path = "/home/jrwest/Research/FloATPy_moving_grid/data/Wong/grid_B"
 
     tvec = 1e-5*np.array(tsteps)
 
