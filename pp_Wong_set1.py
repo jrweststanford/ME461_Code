@@ -23,7 +23,7 @@ matplotlib.rcParams.update(params)
 
 ########################################################################
 ###################### Functions ##############################
-def plot_set1(tsteps, tvec, path):
+def plot_set1(tsteps, tvec, path,plot_reshock):
     reader = mgdr.MovingGridDataReader(path)
     print("Domain Size: {} ".format(reader._domain_size))
     print("Variables available: {}".format(reader._var_names))
@@ -203,45 +203,79 @@ def plot_set1(tsteps, tvec, path):
 
     print("Plotting")
     #Plots
+    xline = np.array([1.15,1.15])
+
     plt.figure(1)
     plt.plot(tvec*1000,W*1000,'-o')
     plt.ylabel('W [mm]')
     plt.xlabel('time [ms]')
+    if plot_reshock:
+        var = W*1000
+        yline = np.array([np.min(var),np.max(var)])
+        plt.plot(xline,yline,'k--')
 
     plt.figure(2)
     plt.plot(tvec*1000,Theta,'-o')
     plt.ylabel('Mixedness [-]')
     plt.xlabel('time [ms]')
+    if plot_reshock:
+        var = Theta
+        yline = np.array([np.min(var),np.max(var)])
+        plt.plot(xline,yline,'k--')
 
     plt.figure(3)
     plt.semilogy(tvec*1000,TKE_int,'-o')
     plt.ylabel('Int. TKE [kg m2 s-2]')
     plt.xlabel('time [ms]')
+    if plot_reshock:
+        var = TKE_int
+        yline = np.array([np.min(var),np.max(var)])
+        plt.plot(xline,yline,'k--')
 
     plt.figure(4)
     plt.semilogy(tvec*1000,Diss_int,'-o')
     plt.ylabel('Int. Dissipation Rate [m3 s-1]')
     plt.xlabel('time [ms]')
+    if plot_reshock:
+        var = Diss_int
+        yline = np.array([np.min(var),np.max(var)])
+        plt.plot(xline,yline,'k--')
 
     plt.figure(5)
     plt.semilogy(tvec*1000,Enstrophy_int,'-o')
     plt.ylabel(r'Int. Enstrophy [kg s-2]')
     plt.xlabel('time [ms]')
+    if plot_reshock:
+        var = Enstrophy_int
+        yline = np.array([np.min(var),np.max(var)])
+        plt.plot(xline,yline,'k--')
 
     plt.figure(6)
     plt.plot(tvec*1000,Ma_t_IMZ,'-o')
     plt.ylabel('Turbulent Ma')
     plt.xlabel('time [ms]')
+    if plot_reshock:
+        var = Ma_t_IMZ
+        yline = np.array([np.min(var),np.max(var)])
+        plt.plot(xline,yline,'k--')
 
     plt.figure(7)
     plt.plot(tvec*1000,At_e_IMZ,'-o')
     plt.ylabel('Effective At')
     plt.xlabel('time [ms]')
+    if plot_reshock:
+        var = At_e_IMZ
+        yline = np.array([np.min(var),np.max(var)])
+        plt.plot(xline,yline,'k--')
 
     plt.figure(8)
     plt.plot(tvec*1000,b11_IMZ,'-o')
     plt.ylabel('b11')
     plt.xlabel('time [ms]')
+    if plot_reshock:
+        var = b11_IMZ
+        yline = np.array([np.min(var),np.max(var)])
+        plt.plot(xline,yline,'k--')
 
     return None
 
@@ -260,17 +294,27 @@ if __name__ == '__main__':
     tsteps_B = (0,10,45, 80,115,125,135,145,155,165,180) #all steps
     tsteps_C = tsteps_B
     tsteps_D = (0,20,90,160,230,250)
+
+    tsteps_B = (0,80,115,125,180)
+    tsteps_C = (0,80,115,125,180)
+    tsteps_D = (0,80,115,125,180)
     
-    path_to_B = "/work/05428/tg847275/Wong/uniform_data/3D_Poggi_RMI_RD/case_1_1/grid_B"
-    path_to_C = "/work/05428/tg847275/Wong/uniform_data/3D_Poggi_RMI_RD/case_1_1/grid_C"
-    path_to_D = "/work/05428/tg847275/Wong/uniform_data/3D_Poggi_RMI_RD/case_1_1/grid_D"
+    #path_to_B = "/work/05428/tg847275/Wong/uniform_data/3D_Poggi_RMI_RD/case_1_1/grid_B"
+    #path_to_C = "/work/05428/tg847275/Wong/uniform_data/3D_Poggi_RMI_RD/case_1_1/grid_C"
+    #path_to_D = "/work/05428/tg847275/Wong/uniform_data/3D_Poggi_RMI_RD/case_1_1/grid_D"
+
+    path_to_B = "/home/jrwest/Research/FloATPy_moving_grid/data/Wong/grid_B"
+    path_to_C = "/home/jrwest/Research/FloATPy_moving_grid/data/Wong/grid_B"
+    path_to_D = "/home/jrwest/Research/FloATPy_moving_grid/data/Wong/grid_B"
 
     paths_vec = (path_to_B,path_to_C,path_to_D)
     tsteps_vec = (tsteps_B,tsteps_C,tsteps_D)
     tvec_vec   = (1e-5*np.array(tsteps_vec[0]),1e-5*np.array(tsteps_vec[1]),0.5e-5*np.array(tsteps_vec[2]))
 
+    plot_reshock = (False,False,True)
+
     for i,path in enumerate(paths_vec):
-        plot_set1(tsteps_vec[i],tvec_vec[i],path)
+        plot_set1(tsteps_vec[i],tvec_vec[i],path,plot_reshock[i])
 
     #Format plots
     print("Formatting Plots")
