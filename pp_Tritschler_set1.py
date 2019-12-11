@@ -23,7 +23,7 @@ matplotlib.rcParams.update(params)
 
 ########################################################################
 ###################### Functions ##############################
-def plot_set1(tsteps, tvec, path):
+def plot_set1(tsteps, tvec, path, plot_reshock):
     reader = mir.MirandaReader(path, periodic_dimensions=(False,True,True),verbose=True)
 
     print("Domain Size: {} ".format(reader._domain_size))
@@ -246,47 +246,80 @@ def plot_set1(tsteps, tvec, path):
         del Enstrophy, density, YHeavy
 
     print("Plotting")
+    xline = np.array([2,2])
     #Plots
     plt.figure(1)
     plt.plot(tvec*1000,W*1000,'-o')
     plt.ylabel('W [mm]')
     plt.xlabel('time [ms]')
+    if plot_reshock:
+        var = W*1000
+        yline = np.array([np.min(var),np.max(var)])
+        plt.plot(xline,yline,'k--')
 
     plt.figure(2)
     plt.plot(tvec*1000,Theta,'-o')
     plt.ylabel('Mixedness [-]')
     plt.xlabel('time [ms]')
+    if plot_reshock:
+        var = Theta
+        yline = np.array([np.min(var),np.max(var)])
+        plt.plot(xline,yline,'k--')
 
     plt.figure(3)
     plt.semilogy(tvec*1000,TKE_int,'-o')
     plt.ylabel('Int. TKE [kg m2 s-2]')
     plt.xlabel('time [ms]')
+    if plot_reshock:
+        var = TKE_int
+        yline = np.array([np.min(var),np.max(var)])
+        plt.plot(xline,yline,'k--')
 
     plt.figure(4)
     plt.semilogy(tvec*1000,Diss_int,'-o')
     plt.ylabel('Int. Dissipation Rate [m3 s-1]')
     plt.xlabel('time [ms]')
+    if plot_reshock:
+        var = Diss_int
+        yline = np.array([np.min(var),np.max(var)])
+        plt.plot(xline,yline,'k--')
 
     plt.figure(5)
     plt.semilogy(tvec*1000,Enstrophy_int,'-o')
     plt.ylabel(r'Int. Enstrophy [kg s-2]')
     plt.xlabel('time [ms]')
+    if plot_reshock:
+        var = Enstrophy_int
+        yline = np.array([np.min(var),np.max(var)])
+        plt.plot(xline,yline,'k--')
 
     plt.figure(6)
     plt.plot(tvec*1000,Ma_t_IMZ,'-o')
     plt.ylabel('Turbulent Ma')
     plt.xlabel('time [ms]')
+    if plot_reshock:
+        var = Ma_t_IMZ
+        yline = np.array([np.min(var),np.max(var)])
+        plt.plot(xline,yline,'k--')
 
     plt.figure(7)
     plt.plot(tvec*1000,At_e_IMZ,'-o')
     plt.ylabel('Effective At')
     plt.xlabel('time [ms]')
+    if plot_reshock:
+        var = At_e_IMZ
+        yline = np.array([np.min(var),np.max(var)])
+        plt.plot(xline,yline,'k--')
 
     plt.figure(8)
     plt.plot(tvec*1000,b11_IMZ,'-o')
     plt.ylabel('b11')
     plt.xlabel('time [ms]')
-
+    if plot_reshock:
+        var = b11_IMZ
+        yline = np.array([np.min(var),np.max(var)])
+        plt.plot(xline,yline,'k--')
+    
     return None
 
 ########################################################################
@@ -308,9 +341,10 @@ if __name__ == '__main__':
 
     paths_vec = (path_to_64,path_to_128,path_to_256)
     tvec   = 1e-4*np.array(tsteps)
+    plot_reshock = (False,False,True)
 
     for i,path in enumerate(paths_vec):
-        plot_set1(tsteps,tvec,path)
+        plot_set1(tsteps,tvec,path,plot_reshock[i])
 
     #Format plots
     print("Formatting Plots")
